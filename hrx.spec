@@ -2,7 +2,7 @@
 
 Name:           hrx
 Version:        0.3.0
-Release:        2%{?dist}
+Release:        3%{?dist}
 Summary:        Hip Runtime Extended (HRX) runtime for AMD NPU and GPU
 
 License:        Apache-2.0 WITH LLVM-exception
@@ -96,6 +96,10 @@ mv %{buildroot}%{_libdir}/libamdhip64.so* %{buildroot}%{_libdir}/hrx/
 %{_libdir}/hrx/libamdhip64.so
 
 %changelog
+* Mon Aug 17 2026 Arun Babu Neelicattu <arun.neelicattu@gmail.com> 0.3.0-3
+- feat(spec): enable AMDGPU HAL driver with ROCm toolchain and synchronization
+  fixes (arun.neelicattu@gmail.com)
+
 * Mon Aug 17 2026 Arun Babu Neelicattu <arun.neelicattu@gmail.com> 0.3.0-2
 - fix(spec): isolate libamdhip64.so to /usr/lib64/hrx to avoid conflict with
   rocm-hip (arun.neelicattu@gmail.com)
