@@ -1,0 +1,169 @@
+diff --git a/hrx-system/runtime/src/iree/hal/drivers/amdgpu/host_queue.c b/hrx-system/runtime/src/iree/hal/drivers/amdgpu/host_queue.c
+index 53df99c3c..d408db16d 100644
+--- a/hrx-system/runtime/src/iree/hal/drivers/amdgpu/host_queue.c
++++ b/hrx-system/runtime/src/iree/hal/drivers/amdgpu/host_queue.c
+@@ -250,52 +250,17 @@ static void iree_hal_amdgpu_host_queue_wait_idle_before_teardown(
+ 
+   hsa_signal_t epoch_signal =
+       iree_hal_amdgpu_notification_ring_epoch_signal(&queue->notification_ring);
+-  hsa_signal_t stop_signal = queue->completion.stop_signal;
+   const hsa_signal_value_t idle_epoch_signal_value =
+       (hsa_signal_value_t)(IREE_HAL_AMDGPU_EPOCH_INITIAL_VALUE -
+                            submitted_epoch);
+   const hsa_signal_value_t idle_compare_value = idle_epoch_signal_value + 1;
+ 
+-  // Submission is already shut out. Wait only for hardware to publish the final
+-  // submitted epoch so no late CP write can race with HSA queue/signal
+-  // teardown; the completion thread still owns notification-ring draining.
+-  if (stop_signal.handle) {
+-    enum {
+-      IREE_HAL_AMDGPU_IDLE_WAIT_EPOCH_SIGNAL = 0,
+-      IREE_HAL_AMDGPU_IDLE_WAIT_STOP_SIGNAL = 1,
+-      IREE_HAL_AMDGPU_IDLE_WAIT_SIGNAL_COUNT = 2,
+-    };
+-    hsa_signal_t signals[IREE_HAL_AMDGPU_IDLE_WAIT_SIGNAL_COUNT] = {
+-        epoch_signal,
+-        stop_signal,
+-    };
+-    hsa_signal_condition_t conditions[IREE_HAL_AMDGPU_IDLE_WAIT_SIGNAL_COUNT] =
+-        {
+-            HSA_SIGNAL_CONDITION_LT,
+-            HSA_SIGNAL_CONDITION_NE,
+-        };
+-    hsa_signal_value_t values[IREE_HAL_AMDGPU_IDLE_WAIT_SIGNAL_COUNT] = {
+-        idle_compare_value,
+-        0,
+-    };
+-    const uint32_t signal_index = iree_hsa_amd_signal_wait_any(
+-        IREE_LIBHSA(queue->libhsa), IREE_HAL_AMDGPU_IDLE_WAIT_SIGNAL_COUNT,
+-        signals, conditions, values, UINT64_MAX, HSA_WAIT_STATE_BLOCKED,
+-        /*satisfying_value=*/NULL);
+-    if (IREE_UNLIKELY(signal_index >= IREE_HAL_AMDGPU_IDLE_WAIT_SIGNAL_COUNT)) {
+-      iree_status_t error = iree_make_status(
+-          IREE_STATUS_INTERNAL,
+-          "hsa_amd_signal_wait_any returned invalid signal index %u during "
+-          "AMDGPU host queue teardown",
+-          signal_index);
+-      iree_hal_amdgpu_host_queue_store_error(queue, error);
+-      iree_hal_amdgpu_host_queue_request_completion_thread_stop(queue);
+-    }
+-  } else {
+-    (void)iree_hsa_signal_wait_scacquire(
+-        IREE_LIBHSA(queue->libhsa), epoch_signal, HSA_SIGNAL_CONDITION_LT,
+-        idle_compare_value, UINT64_MAX, HSA_WAIT_STATE_BLOCKED);
++  if (queue->is_shutting_down || iree_hal_amdgpu_host_queue_has_error(queue)) {
++    return;
+   }
++  (void)iree_hsa_signal_wait_scacquire(
++      IREE_LIBHSA(queue->libhsa), epoch_signal, HSA_SIGNAL_CONDITION_LT,
++      idle_compare_value, UINT64_MAX, HSA_WAIT_STATE_BLOCKED);
+ }
+ 
+ // Completion thread entry point. Blocks in HSA until either the queue epoch
+@@ -310,67 +275,33 @@ static int iree_hal_amdgpu_host_queue_completion_thread_main(void* entry_arg) {
+   iree_hal_amdgpu_host_queue_t* queue =
+       (iree_hal_amdgpu_host_queue_t*)entry_arg;
+ 
+-  enum {
+-    IREE_HAL_AMDGPU_COMPLETION_WAIT_EPOCH_SIGNAL = 0,
+-    IREE_HAL_AMDGPU_COMPLETION_WAIT_STOP_SIGNAL = 1,
+-    IREE_HAL_AMDGPU_COMPLETION_WAIT_SIGNAL_COUNT = 2,
+-  };
+-
+   hsa_signal_t epoch_signal =
+       iree_hal_amdgpu_notification_ring_epoch_signal(&queue->notification_ring);
+-  hsa_signal_t stop_signal = queue->completion.stop_signal;
+   hsa_signal_value_t last_epoch_value =
+       iree_hal_amdgpu_host_queue_last_drained_signal_value(queue);
+ 
+   bool keep_running = true;
+   while (keep_running) {
+-    hsa_signal_t signals[IREE_HAL_AMDGPU_COMPLETION_WAIT_SIGNAL_COUNT] = {
+-        epoch_signal,
+-        stop_signal,
+-    };
+-    hsa_signal_condition_t
+-        conditions[IREE_HAL_AMDGPU_COMPLETION_WAIT_SIGNAL_COUNT] = {
+-            HSA_SIGNAL_CONDITION_NE,
+-            HSA_SIGNAL_CONDITION_NE,
+-        };
+-    hsa_signal_value_t values[IREE_HAL_AMDGPU_COMPLETION_WAIT_SIGNAL_COUNT] = {
+-        last_epoch_value,
+-        0,
+-    };
+-    const uint32_t signal_index = iree_hsa_amd_signal_wait_any(
+-        IREE_LIBHSA(queue->libhsa),
+-        IREE_HAL_AMDGPU_COMPLETION_WAIT_SIGNAL_COUNT, signals, conditions,
+-        values, UINT64_MAX, HSA_WAIT_STATE_BLOCKED,
+-        /*satisfying_value=*/NULL);
++    // 50ms timeout (5,000,000 cycles at 100MHz) ensures responsive shutdown
++    // without multi-signal wait crashing ROCR's vector bounds check.
++    (void)iree_hsa_signal_wait_scacquire(
++        IREE_LIBHSA(queue->libhsa), epoch_signal,
++        HSA_SIGNAL_CONDITION_NE, last_epoch_value,
++        5000000ULL, HSA_WAIT_STATE_BLOCKED);
+ 
+     {
+       IREE_TRACE_ZONE_BEGIN_NAMED(
+           z0, "iree_hal_amdgpu_host_queue_completion_thread_pump");
+-      IREE_TRACE_ZONE_APPEND_VALUE_I64(z0, signal_index);
+-
+-      if (signal_index == IREE_HAL_AMDGPU_COMPLETION_WAIT_EPOCH_SIGNAL) {
+-        iree_hal_amdgpu_host_queue_drain_completions(queue);
+-        // Arm the next wait from the epoch we actually drained, not from a raw
+-        // HSA signal load. A GPU completion can race with the drain and update
+-        // the signal after drain() sampled it; observing that newer value here
+-        // would mark an undrained epoch as already seen and could sleep forever
+-        // with a user semaphore still pending.
+-        last_epoch_value =
+-            iree_hal_amdgpu_host_queue_last_drained_signal_value(queue);
+-      }
+ 
+-      if (signal_index == IREE_HAL_AMDGPU_COMPLETION_WAIT_STOP_SIGNAL ||
+-          iree_hal_amdgpu_host_queue_has_error(queue)) {
+-        iree_hal_amdgpu_host_queue_drain_completions(queue);
+-        keep_running = false;
+-      } else if (IREE_UNLIKELY(signal_index >=
+-                               IREE_HAL_AMDGPU_COMPLETION_WAIT_SIGNAL_COUNT)) {
+-        iree_status_t error = iree_make_status(
+-            IREE_STATUS_INTERNAL,
+-            "hsa_amd_signal_wait_any returned invalid signal index %u",
+-            signal_index);
+-        iree_hal_amdgpu_host_queue_store_error(queue, error);
+-        iree_hal_amdgpu_host_queue_drain_completions(queue);
++      iree_hal_amdgpu_host_queue_drain_completions(queue);
++      last_epoch_value =
++          iree_hal_amdgpu_host_queue_last_drained_signal_value(queue);
++
++      if (queue->is_shutting_down ||
++          iree_hal_amdgpu_host_queue_has_error(queue) ||
++          (queue->completion.stop_signal.handle &&
++           iree_hsa_signal_load_scacquire(IREE_LIBHSA(queue->libhsa),
++                                          queue->completion.stop_signal) != 0)) {
+         keep_running = false;
+       }
+ 
+diff --git a/hrx-system/runtime/src/iree/hal/drivers/amdgpu/util/libaqlprofile.c b/hrx-system/runtime/src/iree/hal/drivers/amdgpu/util/libaqlprofile.c
+index 47e8c073c..9f45273a7 100644
+--- a/hrx-system/runtime/src/iree/hal/drivers/amdgpu/util/libaqlprofile.c
++++ b/hrx-system/runtime/src/iree/hal/drivers/amdgpu/util/libaqlprofile.c
+@@ -8,6 +8,7 @@
+ 
+ #include "iree/base/internal/dynamic_library.h"
+ #include "iree/base/internal/path.h"
++#if __has_include("aqlprofile-sdk/aql_profile_v2.h")
+ #include "aqlprofile-sdk/aql_profile_v2.h"
+ 
+ // Keep vendor aqlprofile headers private to this translation unit. The public
+@@ -96,6 +97,11 @@ IREE_AMDGPU_STATIC_ASSERT(
+ enum {
+   IREE_HAL_AMDGPU_AQLPROFILE_SUPPORTED_MAJOR_VERSION = AQLPROFILE_VERSION_MAJOR,
+ };
++#else
++enum {
++  IREE_HAL_AMDGPU_AQLPROFILE_SUPPORTED_MAJOR_VERSION = 2,
++};
++#endif
+ 
+ //===----------------------------------------------------------------------===//
+ // Utilities

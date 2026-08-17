@@ -8,8 +8,16 @@ Summary:        Hip Runtime Extended (HRX) runtime for AMD NPU and GPU
 License:        Apache-2.0 WITH LLVM-exception
 URL:            https://github.com/ROCm/hrx-system
 Source0:        %{name}-%{version}.tar.gz
+Patch0:         0001-fix-amdgpu-hal-build-and-rocr-multi-signal-sync.patch
 
 BuildRequires:  gcc-c++
+BuildRequires:  clang
+BuildRequires:  lld
+BuildRequires:  llvm
+BuildRequires:  rocm-clang
+BuildRequires:  rocm-lld
+BuildRequires:  rocm-llvm
+BuildRequires:  rocm-runtime-devel
 BuildRequires:  cmake >= 3.26
 BuildRequires:  ninja-build
 BuildRequires:  python3
@@ -44,9 +52,11 @@ HIP (Heterogeneous-Compute Interface for Portability) drop-in compatibility
 layer implemented on top of the HRX streaming runtime.
 
 %prep
-%autosetup -n %{name}-%{version}
+%autosetup -n %{name}-%{version} -p1
 
 %build
+export CC=clang
+export CXX=clang++
 %cmake -S hrx-system -B %{_vpath_builddir} \
     -GNinja \
     -DCMAKE_BUILD_TYPE=Release \
@@ -54,7 +64,7 @@ layer implemented on top of the HRX streaming runtime.
     -DBUILD_SHARED_LIBS=OFF \
     -DLIBHRX_BUILD=ON \
     -DLIBHRX_BUILD_HIP_BINDING=ON \
-    -DIREE_HAL_DRIVER_AMDGPU=OFF \
+    -DIREE_HAL_DRIVER_AMDGPU=ON \
     -DIREE_BUILD_TESTS=OFF \
     -DIREE_BUILD_BENCHMARKS=OFF \
     -DLOOM_BUILD=OFF \
