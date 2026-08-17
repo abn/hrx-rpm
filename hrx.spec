@@ -65,6 +65,10 @@ layer implemented on top of the HRX streaming runtime.
 %install
 DESTDIR=%{buildroot} cmake --install %{_vpath_builddir} --component HrxPublicDist
 
+# Isolate HIP compatibility library to avoid file conflict with official rocm-hip
+mkdir -p %{buildroot}%{_libdir}/hrx
+mv %{buildroot}%{_libdir}/libamdhip64.so* %{buildroot}%{_libdir}/hrx/
+
 %files
 %license hrx-system/LICENSE
 %doc hrx-system/README.md
@@ -77,8 +81,9 @@ DESTDIR=%{buildroot} cmake --install %{_vpath_builddir} --component HrxPublicDis
 %{_libdir}/cmake/hrx/
 
 %files -n hrx-hip
-%{_libdir}/libamdhip64.so.*
-%{_libdir}/libamdhip64.so
+%dir %{_libdir}/hrx
+%{_libdir}/hrx/libamdhip64.so.*
+%{_libdir}/hrx/libamdhip64.so
 
 %changelog
 * Mon Aug 17 2026 Arun Babu Neelicattu <arun.neelicattu@gmail.com> 0.3.0-1
