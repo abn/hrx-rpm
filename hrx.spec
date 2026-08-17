@@ -81,4 +81,7 @@ DESTDIR=%{buildroot} cmake --install %{_vpath_builddir} --component HrxPublicDis
 
 %changelog
 * Mon Aug 17 2026 Arun Babu Neelicattu <arun.neelicattu@gmail.com> 0.1.0-1
+- new package built with tito
+
+* Mon Aug 17 2026 Arun Babu Neelicattu <arun.neelicattu@gmail.com> 0.1.0-1
 - Initial packaging of HRX (ROCm/hrx-system)
