@@ -81,6 +81,10 @@ DESTDIR=%{buildroot} cmake --install %{_vpath_builddir} --component HrxPublicDis
 %{_libdir}/libamdhip64.so
 
 %changelog
+* Mon Aug 17 2026 Arun Babu Neelicattu <arun.neelicattu@gmail.com> 0.3.0-1
+- feat(hrx): update submodule to upstream v0.3.0 and bump version to 0.3.0
+  (arun.neelicattu@gmail.com)
+
 * Mon Aug 17 2026 Arun Babu Neelicattu <arun.neelicattu@gmail.com> 0.1.0-1
 - new package built with tito
 
