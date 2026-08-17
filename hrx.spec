@@ -1,7 +1,7 @@
 %global debug_package %{nil}
 
 Name:           hrx
-Version:        0.1.0
+Version:        0.3.0
 Release:        1%{?dist}
 Summary:        Hip Runtime Extended (HRX) runtime for AMD NPU and GPU
 
@@ -54,6 +54,7 @@ layer implemented on top of the HRX streaming runtime.
     -DBUILD_SHARED_LIBS=OFF \
     -DLIBHRX_BUILD=ON \
     -DLIBHRX_BUILD_HIP_BINDING=ON \
+    -DIREE_HAL_DRIVER_AMDGPU=OFF \
     -DIREE_BUILD_TESTS=OFF \
     -DIREE_BUILD_BENCHMARKS=OFF \
     -DLOOM_BUILD=OFF \
