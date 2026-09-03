@@ -98,6 +98,10 @@ mv %{buildroot}%{_libdir}/libamdhip64.so* %{buildroot}%{_libdir}/hrx/
 %{_libdir}/hrx/libamdhip64.so
 
 %changelog
+* Thu Sep 03 2026 Arun Babu Neelicattu <arun.neelicattu@gmail.com> 0.3.0-5
+- fix(amdgpu): fall back to native execution mode when PM4 emulation query
+  fails on APU iGPU (arun.neelicattu@gmail.com)
+
 * Thu Sep 03 2026 Arun Babu Neelicattu <arun.neelicattu@gmail.com> 0.3.0-4
 - feat(spec): enable AMDXDNA NPU driver and rebase synchronization patch
   (arun.neelicattu@gmail.com)
