@@ -98,6 +98,10 @@ mv %{buildroot}%{_libdir}/libamdhip64.so* %{buildroot}%{_libdir}/hrx/
 %{_libdir}/hrx/libamdhip64.so
 
 %changelog
+* Thu Sep 03 2026 Arun Babu Neelicattu <arun.neelicattu@gmail.com> 0.3.0-4
+- feat(spec): enable AMDXDNA NPU driver and rebase synchronization patch
+  (arun.neelicattu@gmail.com)
+
 * Mon Aug 17 2026 Arun Babu Neelicattu <arun.neelicattu@gmail.com> 0.3.0-3
 - feat(spec): enable AMDGPU HAL driver with ROCm toolchain and synchronization
   fixes (arun.neelicattu@gmail.com)
