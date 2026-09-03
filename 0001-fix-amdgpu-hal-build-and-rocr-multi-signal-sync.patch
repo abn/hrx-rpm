@@ -123,6 +123,34 @@ index eddef6d2e..5239098f0 100644
          keep_running = false;
        }
  
+diff --git a/hrx-system/runtime/src/iree/hal/drivers/amdgpu/util/aql_ring.c b/hrx-system/runtime/src/iree/hal/drivers/amdgpu/util/aql_ring.c
+index 39248361c..608724a2a 100644
+--- a/hrx-system/runtime/src/iree/hal/drivers/amdgpu/util/aql_ring.c
++++ b/hrx-system/runtime/src/iree/hal/drivers/amdgpu/util/aql_ring.c
+@@ -13,11 +13,18 @@ iree_status_t iree_hal_amdgpu_query_aql_queue_execution_mode(
+   IREE_ASSERT_ARGUMENT(out_execution_mode);
+ 
+   bool pm4_emulation = false;
+-  IREE_RETURN_IF_ERROR(
+-      iree_hsa_agent_get_info(
+-          IREE_LIBHSA(libhsa), device_agent,
+-          (hsa_agent_info_t)HSA_AMD_AGENT_INFO_PM4_EMULATION, &pm4_emulation),
+-      "querying HSA_AMD_AGENT_INFO_PM4_EMULATION");
++  hsa_status_t status = iree_hsa_agent_get_info_raw(
++      libhsa, device_agent,
++      (hsa_agent_info_t)HSA_AMD_AGENT_INFO_PM4_EMULATION, &pm4_emulation);
++  if (status == HSA_STATUS_ERROR_INVALID_ARGUMENT) {
++    // Agents that do not support querying PM4 emulation (such as client APU
++    // integrated GPUs) default to native AQL queue execution mode.
++    pm4_emulation = false;
++  } else if (status != HSA_STATUS_SUCCESS) {
++    return iree_hsa_agent_get_info(
++        IREE_LIBHSA(libhsa), device_agent,
++        (hsa_agent_info_t)HSA_AMD_AGENT_INFO_PM4_EMULATION, &pm4_emulation);
++  }
+   *out_execution_mode =
+       pm4_emulation ? IREE_HAL_AMDGPU_AQL_QUEUE_EXECUTION_MODE_PM4_EMULATED
+                     : IREE_HAL_AMDGPU_AQL_QUEUE_EXECUTION_MODE_NATIVE;
 diff --git a/hrx-system/runtime/src/iree/hal/drivers/amdgpu/util/libaqlprofile.c b/hrx-system/runtime/src/iree/hal/drivers/amdgpu/util/libaqlprofile.c
 index be4be02bc..dcc9f6f45 100644
 --- a/hrx-system/runtime/src/iree/hal/drivers/amdgpu/util/libaqlprofile.c

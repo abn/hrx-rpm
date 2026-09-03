@@ -2,7 +2,7 @@
 
 Name:           hrx
 Version:        0.3.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Hip Runtime Extended (HRX) runtime for AMD NPU and GPU
 
 License:        Apache-2.0 WITH LLVM-exception
