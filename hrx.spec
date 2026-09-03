@@ -2,7 +2,7 @@
 
 Name:           hrx
 Version:        0.3.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Hip Runtime Extended (HRX) runtime for AMD NPU and GPU
 
 License:        Apache-2.0 WITH LLVM-exception
@@ -18,6 +18,7 @@ BuildRequires:  rocm-clang
 BuildRequires:  rocm-lld
 BuildRequires:  rocm-llvm
 BuildRequires:  rocm-runtime-devel
+BuildRequires:  aqlprofile-devel
 BuildRequires:  cmake >= 3.26
 BuildRequires:  ninja-build
 BuildRequires:  python3
@@ -65,6 +66,7 @@ export CXX=clang++
     -DLIBHRX_BUILD=ON \
     -DLIBHRX_BUILD_HIP_BINDING=ON \
     -DIREE_HAL_DRIVER_AMDGPU=ON \
+    -DIREE_HAL_DRIVER_AMDXDNA=ON \
     -DIREE_BUILD_TESTS=OFF \
     -DIREE_BUILD_BENCHMARKS=OFF \
     -DLOOM_BUILD=OFF \
